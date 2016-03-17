@@ -129,7 +129,7 @@ class WordPress_GitHub_Sync_Fetch_Client extends WordPress_GitHub_Sync_Base_Clie
 	 * @return WordPress_GitHub_Sync_Blob|WP_Error
 	 */
 	protected function blob( $blob ) {
-		if ( $cache = $this->app->cache()->fetch_blob( $blob->sha ) ) {
+		if ( $cache = $this->app->cache()->fetch_blob( $blob->sha.$blob->path ) ) {
 			return $cache;
 		}
 
@@ -142,6 +142,6 @@ class WordPress_GitHub_Sync_Fetch_Client extends WordPress_GitHub_Sync_Base_Clie
 		$data->path = $blob->path;
 		$obj = new WordPress_GitHub_Sync_Blob( $data );
 
-		return $this->app->cache()->set_blob( $obj->sha(), $obj );
+		return $this->app->cache()->set_blob( $obj->sha().$blob->path, $obj );
 	}
 }
