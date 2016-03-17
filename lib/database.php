@@ -17,6 +17,13 @@ class WordPress_GitHub_Sync_Database {
 	protected $app;
 
 	/**
+	 * Cached list of currenly used shas
+	 *
+	 * @var array
+	 */
+	protected $sha_list;
+
+	/**
 	 * Currently whitelisted post types.
 	 *
 	 * @var array
@@ -133,6 +140,72 @@ class WordPress_GitHub_Sync_Database {
 	}
 
 	/**
+	 * Generates a cache of currenly used shas and
+	 * their accociated paths
+	 *
+	 * @return Array
+	 */
+	public function get_sha_list(){
+		if(!$this->sha_list){
+			global $wpdb;
+			$results = $wpdb->get_results("
+				SELECT
+					post_id as id,
+					(select meta_value from $wpdb->postmeta where post_id = id and meta_key = '_sha' ) as sha,
+					(select meta_value from $wpdb->postmeta where post_id = id and meta_key = '_wpghs_github_path' ) as path
+				FROM $wpdb->postmeta
+				WHERE meta_key = '_sha'
+			");
+			$this->sha_list = [];
+			foreach ($results as &$data) {
+				$this->sha_list[$data->sha] = $data;
+			}
+		}
+		return $this->sha_list;
+	}
+
+	/**
+	 * Checks to see is a sha is in use.
+	 *
+	 * @param string $sha Post sha to check for.
+     *
+	 * @return Booelan
+	 */
+	public function sha_exists($sha){
+		$sha_list = $this->get_sha_list();
+		return isset($this->sha_list[$sha]);
+	}
+
+	/**
+	 * Checks to see is a sha is in use, and that the
+	 * accociated path matches the given path
+	 *
+	 * @param string $sha Post sha to check for.
+	 * @param string $path Patn to match the sha to.
+	 *
+	 * @return Booelan
+	 */
+	public function sha_exists_with_path($sha, $path){
+		$sha_list = $this->get_sha_list();
+		if(isset($this->sha_list[$sha])){
+			$data = $this->sha_list[$sha];
+			return ($data->path == $path);
+		}else{
+			return false;
+		}
+	}
+
+	public function get_post_by_path($path){
+		$sha_list = $this->get_sha_list();
+		foreach ($sha_list as $key => $value) {
+			if($value->path==$path){
+				return $value->id;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Saves an array of Post objects to the database
 	 * and associates their author as well as their latest
 	 *
@@ -210,53 +283,11 @@ class WordPress_GitHub_Sync_Database {
 		$post_id = $query->get_posts();
 		$post_id = array_pop( $post_id );
 
-		if ( ! $post_id ) {
-			$parts     = explode( '/', $path );
-			$filename  = array_pop( $parts );
-			$directory = $parts ? array_shift( $parts ) : '';
+		if ( $post_id ) {
 
-			if ( false !== strpos( $directory, 'post' ) ) {
-				preg_match( '/([0-9]{4})-([0-9]{2})-([0-9]{2})-(.*)\.md/', $filename, $matches );
-				$title = $matches[4];
+			$result = wp_delete_post( $post_id );
 
-				$query = new WP_Query( array(
-					'name'     => $title,
-					'posts_per_page' => 1,
-					'post_type' => $this->get_whitelisted_post_types(),
-					'fields'         => 'ids',
-				) );
-
-				$post_id = $query->get_posts();
-				$post_id = array_pop( $post_id );
-			}
-
-			if ( ! $post_id ) {
-				preg_match( '/(.*)\.md/', $filename, $matches );
-				$title = $matches[1];
-
-				$query = new WP_Query( array(
-					'name'     => $title,
-					'posts_per_page' => 1,
-					'post_type' => $this->get_whitelisted_post_types(),
-					'fields'         => 'ids',
-				) );
-
-				$post_id = $query->get_posts();
-				$post_id = array_pop( $post_id );
-			}
 		}
-
-		if ( ! $post_id ) {
-			return new WP_Error(
-				'path_not_found',
-				sprintf(
-					__( 'Post not found for path %s.', 'wordpress-github-sync' ),
-					$path
-				)
-			);
-		}
-
-		$result = wp_delete_post( $post_id );
 
 		// If deleting fails...
 		if ( false === $result ) {
