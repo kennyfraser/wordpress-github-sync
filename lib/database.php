@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Database interface.
  * @package WordPress_GitHub_Sync
