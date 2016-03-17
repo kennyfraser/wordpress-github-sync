@@ -24,6 +24,20 @@ class WordPress_GitHub_Sync_Blob {
 	protected $content;
 
 	/**
+	 * content mime type.
+	 *
+	 * @var string
+	 */
+	protected $mimetype;
+
+	/**
+	 * content file extention.
+	 *
+	 * @var string
+	 */
+	protected $file_extension;
+
+	/**
 	 * Blob sha.
 	 *
 	 * @var string
@@ -55,6 +69,24 @@ class WordPress_GitHub_Sync_Blob {
 		$this->interpret_data();
 	}
 
+	public function mimetype() {
+
+		if(!$this->mimetype){
+			// Detect minetype, might want to store this
+			// as meta data
+			$finfo = finfo_open();
+			$this->mimetype = finfo_buffer($finfo, $this->content, FILEINFO_MIME_TYPE);
+			finfo_close($finfo);
+		}
+
+		return $this->mimetype;
+
+	}
+
+	public function file_extension() {
+		return $this->file_extension;
+	}
+
 	/**
 	 * Returns the raw blob content.
 	 *
@@ -81,6 +113,7 @@ class WordPress_GitHub_Sync_Blob {
 
 		return $this;
 	}
+
 	/**
 	 * Returns the blob sha.
 	 *
@@ -122,7 +155,7 @@ class WordPress_GitHub_Sync_Blob {
 			$content = array_pop( $matches );
 		}
 
-		if ( function_exists( 'wpmarkdown_markdown_to_html' ) ) {
+		if ( $this->file_extension == "md" && function_exists( 'wpmarkdown_markdown_to_html' ) ) {
 			$content = wpmarkdown_markdown_to_html( $content );
 		}
 
@@ -182,6 +215,8 @@ class WordPress_GitHub_Sync_Blob {
 	protected function interpret_data() {
 		$this->sha  = isset( $this->data->sha ) ? $this->data->sha : '';
 		$this->path = isset( $this->data->path ) ? $this->data->path : '';
+
+		$this->file_extension = pathinfo($this->path,PATHINFO_EXTENSION);
 
 		$this->set_content(
 			isset( $this->data->content ) ? trim( $this->data->content ) : '',
