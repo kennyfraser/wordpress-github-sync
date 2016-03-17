@@ -63,7 +63,9 @@ class WordPress_GitHub_Sync_Post {
 		if ( is_numeric( $id_or_args ) ) {
 			$this->id   = (int) $id_or_args;
 			$this->post = get_post( $this->id );
-			$this->new  = false;
+			if ( $this->post ) {
+				$this->new  = false;
+			}
 		}
 
 		if ( is_array( $id_or_args ) ) {
